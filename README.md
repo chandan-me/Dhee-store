@@ -7,43 +7,6 @@ A production-grade, distributed e-commerce microservices platform built with **P
 
 ---
 
-## 🏛️ System Architecture
-
-```mermaid
-flowchart TD
-    Client["💻 React 18 E-Commerce SPA\n(Port 5173 - Vite)"]
-    Gateway["🛡️ API Gateway\n(Port 8010 - FastAPI)\n[JWT Gatekeeper, RBAC & Reverse Proxy]"]
-    
-    subgraph Microservices ["Isolated Domain Microservices Layer"]
-        UserService["👤 User Service\n(Port 8011)\n[Bcrypt Auth, Profiles, Block Control]"]
-        ProductService["📦 Product Service\n(Port 8012)\n[Catalog, Pricing, Inventory Deduction]"]
-        OrderService["🛒 Order Service\n(Port 8013)\n[Saga Coordinator, Multi-Item Cart, Razorpay/COD]"]
-    end
-
-    subgraph External ["Payment Gateway"]
-        Razorpay["⚡ Razorpay API\n(Orders & HMAC Verification)"]
-    end
-    
-    subgraph Databases ["MySQL 8.0 Isolated Databases"]
-        UserDB[("🗄️ users_db\n(users table)")]
-        ProductDB[("🗄️ products_db\n(products table)")]
-        OrderDB[("🗄️ orders_db\n(orders table)")]
-    end
-
-    Client -->|HTTP / REST| Gateway
-    Gateway -->|Proxy /auth, /users| UserService
-    Gateway -->|Proxy /products| ProductService
-    Gateway -->|Proxy /orders (JWT Verified)| OrderService
-
-    OrderService -.->|1. Verify Customer Active| UserService
-    OrderService -.->|2. Verify Stock & Block Status| ProductService
-    OrderService -.->|3. Atomic Stock Deduction| ProductService
-    OrderService <-->|Verify Payment Signature| Razorpay
-
-    UserService --- UserDB
-    ProductService --- ProductDB
-    OrderService --- OrderDB
-```
 
 ---
 
