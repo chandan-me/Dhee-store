@@ -77,6 +77,33 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         print(f"Bcrypt verification check error: {e}")
     return False
 
+# Auto-seed default Admin and Customer accounts if users table is empty
+def auto_seed_users():
+    try:
+        with database.SessionLocal() as session:
+            count = session.query(models.User).count()
+            if count == 0:
+                admin = models.User(
+                    name="Admin User",
+                    email="admin@store.com",
+                    password=hash_password("admin123"),
+                    role="admin"
+                )
+                customer = models.User(
+                    name="Customer User",
+                    email="customer@store.com",
+                    password=hash_password("customer123"),
+                    role="customer"
+                )
+                session.add_all([admin, customer])
+                session.commit()
+                print("[User Service] Auto-seeded default accounts: admin@store.com & customer@store.com")
+    except Exception as e:
+        print(f"[User Service] User auto-seed notice: {e}")
+
+auto_seed_users()
+
+
 
 # ==============================================================================
 # [DATA TRAVEL FLOW - CREATE USER]:

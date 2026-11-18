@@ -87,52 +87,42 @@ microservices/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quickstart Guide (For You & Friends)
 
 ### 1. Prerequisites
 - **Python**: Version 3.10 or higher.
 - **Node.js**: Version 18.0 or higher (with `npm`).
-- **MySQL Community Server**: Running on `localhost:3306`.
+- **MySQL Community Server**: Installed and running on `localhost:3306`.
+  *(Make sure the MySQL service is started via Windows Services or `Start-Service MySQL80`).*
 
 ---
 
 ### 2. Configure Environment (`.env`)
-Create or edit your [.env](file:///c:/Users/user/Downloads/microservices/.env) file at the workspace root:
+When you clone the repository, create a `.env` file at the root (or let `run_all.py` auto-generate it for you):
 
 ```env
 # MySQL Connection Configuration
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_USER=root
-MYSQL_PASSWORD=your_mysql_password_here
+MYSQL_PASSWORD=your_actual_mysql_root_password
 
 # JWT Security
 JWT_SECRET=demo_secret_key_Demo_gatekeeper_auth_2026
 JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ACCESS_TOKEN_EXPIRE_MINUTES=300000
 
-# Razorpay Payment Gateway (Optional for online payments; COD works out of the box)
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+# Razorpay Payment Gateway (Test keys included)
+RAZORPAY_KEY_ID=rzp_test_T9pQXLodEsWanv
+RAZORPAY_KEY_SECRET=fe8EIlYB67kM4aLCqcn09YSX
 ```
+
+> [!IMPORTANT]
+> Be sure to set `MYSQL_PASSWORD` to your local MySQL root password! If left blank and your MySQL requires a password, backend services will not be able to connect.
 
 ---
 
-### 3. Initialize Databases
-Initialize all 3 MySQL databases with the provided SQL script:
-
-```powershell
-mysql -u root -p < db_setup.sql
-```
-
-This creates:
-- `users_db.users` with default Admin and Customer accounts (Password: `password123`).
-- `products_db.products` with 10 high-resolution merchandise items.
-- `orders_db.orders` ready for transactions.
-
----
-
-### 4. Install Dependencies
+### 3. Install Dependencies
 
 #### Python Packages
 ```powershell
@@ -146,18 +136,39 @@ npm --prefix frontend install
 
 ---
 
+### 4. Zero-Setup Database Initialization
+> [!TIP]
+> You **do not** need to manually create databases! `run_all.py` and each microservice will **automatically create** `users_db`, `products_db`, and `orders_db` and seed default users and catalog products on first launch.
+>
+> *(Optional)*: If you ever want to reset all tables and sample records manually:
+> ```powershell
+> mysql -u root -p < db_setup.sql
+> ```
+
+---
+
 ### 5. Launch the Entire System
-Start all 3 Microservices, the API Gateway, and the React Frontend simultaneously using the master orchestrator:
+Start all 3 Microservices, the API Gateway, and the React Frontend with a single command:
 
 ```powershell
 python run_all.py
 ```
 
+`run_all.py` runs automated pre-flight checks:
+- Verifies MySQL is running and reachable on port 3306.
+- Tests your MySQL credentials and auto-creates the databases if they don't exist.
+- Starts all microservices and monitors for any startup errors.
+
 When ready, open your browser:
 - **🛍️ React Application UI**: [http://localhost:5173](http://localhost:5173)
 - **🛡️ API Gateway Swagger Docs**: [http://127.0.0.1:8010/docs](http://127.0.0.1:8010/docs)
 
+**Default Login Accounts:**
+- **Admin**: `admin@store.com` / `admin123`
+- **Customer**: `customer@store.com` / `customer123`
+
 *(Press `Ctrl+C` in the terminal to gracefully terminate all services).*
+
 
 ---
 

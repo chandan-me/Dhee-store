@@ -49,7 +49,7 @@ def auto_seed_products():
             count = session.query(models.Product).count()
             if count == 0:
                 defaults = [
-                    models.Product(name="Smart Watch Series 5", price=89.99, stock=25, image_url="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&h=600&q=80"),
+                    models.Product(name="Smart Watch Series 5", price=89.99, stock=25, image_url="https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&h=600&q=80"),
                     models.Product(name="Wireless Headphones", price=59.99, stock=40, image_url="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&h=600&q=80"),
                     models.Product(name="Travel Backpack", price=39.99, stock=30, image_url="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&h=600&q=80"),
                     models.Product(name="Running Shoes", price=49.99, stock=20, image_url="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&h=600&q=80"),
