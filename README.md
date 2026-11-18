@@ -107,18 +107,25 @@ MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=your_actual_mysql_root_password
 
-# JWT Security
-JWT_SECRET=demo_secret_key_Demo_gatekeeper_auth_2026
+# JWT Token Security (Use a 256-bit cryptographically secure key)
+JWT_SECRET=your_jwt_secret_key_here
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=300000
 
-# Razorpay Payment Gateway (Test keys included)
-RAZORPAY_KEY_ID=rzp_test_T9pQXLodEsWanv
-RAZORPAY_KEY_SECRET=fe8EIlYB67kM4aLCqcn09YSX
+# Razorpay Payment Gateway Credentials (Optional)
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+
+# Initial User Provisioning (Optional)
+ADMIN_EMAIL=admin@store.com
+ADMIN_PASSWORD=your_admin_password
+CUSTOMER_EMAIL=customer@store.com
+CUSTOMER_PASSWORD=your_customer_password
 ```
 
 > [!IMPORTANT]
-> Be sure to set `MYSQL_PASSWORD` to your local MySQL root password! If left blank and your MySQL requires a password, backend services will not be able to connect.
+> All secret keys and passwords must be stored exclusively in `.env`. No hardcoded secrets or demo keys exist in the codebase.
+
 
 ---
 
@@ -163,9 +170,7 @@ When ready, open your browser:
 - **🛍️ React Application UI**: [http://localhost:5173](http://localhost:5173)
 - **🛡️ API Gateway Swagger Docs**: [http://127.0.0.1:8010/docs](http://127.0.0.1:8010/docs)
 
-**Default Login Accounts:**
-- **Admin**: `admin@store.com` / `admin123`
-- **Customer**: `customer@store.com` / `customer123`
+*(Account credentials and initial logins are defined directly in `.env` or created via the Sign Up form).*
 
 *(Press `Ctrl+C` in the terminal to gracefully terminate all services).*
 

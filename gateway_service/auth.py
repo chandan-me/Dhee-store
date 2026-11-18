@@ -5,10 +5,16 @@ from typing import Optional
 from dotenv import load_dotenv
 
 # Load root .env
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
 
-SECRET_KEY = os.getenv("JWT_SECRET", "demo_secret_key_Demo_gatekeeper_auth_2026")
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+SECRET_KEY = os.getenv("JWT_SECRET", "").strip()
+if not SECRET_KEY:
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: 'JWT_SECRET' is not defined in the .env file! "
+        "Every secret key must be stored in .env only."
+    )
+
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256").strip() or "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

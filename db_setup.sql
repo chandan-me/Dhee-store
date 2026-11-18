@@ -20,11 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_login DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Default Users: password123 (bcrypt hash: $2b$12$Gr/.Ubn052MvytWfU8ByNu9swtSuOvhnCVDf6T2jtfd4ykYMg5u8O)
-INSERT INTO users (id, name, email, role, password, is_blocked) VALUES
-(1, 'Admin', 'admin@gmail.com', 'admin', '$2b$12$Gr/.Ubn052MvytWfU8ByNu9swtSuOvhnCVDf6T2jtfd4ykYMg5u8O', 0),
-(2, 'Customer', 'customer@gmail.com', 'customer', '$2b$12$Gr/.Ubn052MvytWfU8ByNu9swtSuOvhnCVDf6T2jtfd4ykYMg5u8O', 0)
-ON DUPLICATE KEY UPDATE name=VALUES(name), role=VALUES(role), password=VALUES(password), is_blocked=VALUES(is_blocked);
+-- Note: User accounts and passwords are created via registration or provisioned securely from .env.
+-- No plaintext or demo credentials are hardcoded in SQL scripts.
 
 -- 2. PRODUCTS DATABASE & SEED DATA
 CREATE DATABASE IF NOT EXISTS products_db;

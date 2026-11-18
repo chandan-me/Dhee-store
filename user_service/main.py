@@ -77,29 +77,48 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         print(f"Bcrypt verification check error: {e}")
     return False
 
-# Auto-seed default Admin and Customer accounts if users table is empty
+# Auto-seed initial Admin and Customer accounts strictly using credentials defined in .env
 def auto_seed_users():
+    """Auto-seeds initial accounts strictly using credentials defined in .env. No hardcoded demo passwords."""
     try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"), override=True)
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip()
+        admin_password = os.getenv("ADMIN_PASSWORD", "").strip()
+        customer_email = os.getenv("CUSTOMER_EMAIL", "").strip()
+        customer_password = os.getenv("CUSTOMER_PASSWORD", "").strip()
+
+        # If admin credentials are not provided in .env, do not provision any accounts with fallback passwords
+        if not admin_email or not admin_password:
+            return
+
         with database.SessionLocal() as session:
             count = session.query(models.User).count()
             if count == 0:
-                admin = models.User(
-                    name="Admin User",
-                    email="admin@store.com",
-                    password=hash_password("admin123"),
+                admin_name = os.getenv("ADMIN_NAME", "System Administrator").strip() or "System Administrator"
+                admin_user = models.User(
+                    name=admin_name,
+                    email=admin_email.lower(),
+                    password=hash_password(admin_password),
                     role="admin"
                 )
-                customer = models.User(
-                    name="Customer User",
-                    email="customer@store.com",
-                    password=hash_password("customer123"),
-                    role="customer"
-                )
-                session.add_all([admin, customer])
+                users_to_add = [admin_user]
+
+                if customer_email and customer_password:
+                    cust_name = os.getenv("CUSTOMER_NAME", "Customer User").strip() or "Customer User"
+                    cust_user = models.User(
+                        name=cust_name,
+                        email=customer_email.lower(),
+                        password=hash_password(customer_password),
+                        role="customer"
+                    )
+                    users_to_add.append(cust_user)
+
+                session.add_all(users_to_add)
                 session.commit()
-                print("[User Service] Auto-seeded default accounts: admin@store.com & customer@store.com")
+                print(f"[User Service] Provisioned initial accounts strictly from .env ({admin_email}).")
     except Exception as e:
-        print(f"[User Service] User auto-seed notice: {e}")
+        print(f"[User Service] User provisioning notice: {e}")
 
 auto_seed_users()
 

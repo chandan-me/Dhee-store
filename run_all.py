@@ -37,30 +37,53 @@ def run_preflight_checks():
 
     # 1. Check or auto-generate .env
     if not os.path.exists(env_path):
-        if os.path.exists(env_example):
-            shutil.copy(env_example, env_path)
-            print("[Setup] Created '.env' configuration file from '.env.example'.")
-        else:
-            default_env = (
-                "MYSQL_HOST=localhost\n"
-                "MYSQL_PORT=3306\n"
-                "MYSQL_USER=root\n"
-                "MYSQL_PASSWORD=\n"
-                "JWT_SECRET=demo_secret_key_Demo_gatekeeper_auth_2026\n"
-                "JWT_ALGORITHM=HS256\n"
-                "ACCESS_TOKEN_EXPIRE_MINUTES=300000\n"
-                "RAZORPAY_KEY_ID=rzp_test_T9pQXLodEsWanv\n"
-                "RAZORPAY_KEY_SECRET=fe8EIlYB67kM4aLCqcn09YSX\n"
-            )
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.write(default_env)
-            print("[Setup] Created default '.env' configuration file.")
+        import secrets
+        generated_jwt_secret = secrets.token_hex(32)
+        default_env = (
+            "# =====================================================================\n"
+            "# Central Database & Authentication Configuration\n"
+            "# All secret keys and passwords must be stored in this file (.env).\n"
+            "# =====================================================================\n\n"
+            "# MySQL Server Configuration\n"
+            "MYSQL_HOST=localhost\n"
+            "MYSQL_PORT=3306\n"
+            "MYSQL_USER=root\n"
+            "MYSQL_PASSWORD=\n\n"
+            "# JWT Secret Key (Cryptographically generated)\n"
+            f"JWT_SECRET={generated_jwt_secret}\n"
+            "JWT_ALGORITHM=HS256\n"
+            "ACCESS_TOKEN_EXPIRE_MINUTES=300000\n\n"
+            "# Razorpay Payment Gateway Credentials (Optional)\n"
+            "RAZORPAY_KEY_ID=\n"
+            "RAZORPAY_KEY_SECRET=\n\n"
+            "# Initial Administrator & Customer Setup (Optional)\n"
+            "ADMIN_NAME=System Administrator\n"
+            "ADMIN_EMAIL=admin@store.com\n"
+            "ADMIN_PASSWORD=\n"
+            "CUSTOMER_NAME=Customer User\n"
+            "CUSTOMER_EMAIL=customer@store.com\n"
+            "CUSTOMER_PASSWORD=\n"
+        )
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.write(default_env)
+        print("[Setup] Generated secure '.env' file with cryptographically random JWT_SECRET.")
+        print("[Setup] Please open '.env' and specify your MYSQL_PASSWORD and account passwords.")
     else:
         print("[Pre-flight] Found '.env' configuration file.")
 
     # 2. Read environment variables
     from dotenv import load_dotenv
     load_dotenv(env_path, override=True)
+
+    # Validate JWT_SECRET exists in .env
+    jwt_secret = os.getenv("JWT_SECRET", "").strip()
+    if not jwt_secret:
+        import secrets
+        generated_secret = secrets.token_hex(32)
+        with open(env_path, "a", encoding="utf-8") as f:
+            f.write(f"\nJWT_SECRET={generated_secret}\n")
+        os.environ["JWT_SECRET"] = generated_secret
+        print("[Pre-flight] Generated and appended a cryptographically secure JWT_SECRET to '.env'.")
 
     mysql_host = os.getenv("MYSQL_HOST", "localhost")
     mysql_port = int(os.getenv("MYSQL_PORT", "3306"))
@@ -230,13 +253,16 @@ def main():
             print("\n[System] One or more services failed to start. Shutting down workspace...")
             raise KeyboardInterrupt
         
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip() or "Configured in .env"
+        customer_email = os.getenv("CUSTOMER_EMAIL", "").strip() or "Configured in .env"
         print("\n" + "=" * 70)
         print("ALL MICROSERVICES & FRONTEND ARE LIVE AND HEALTHY!")
         print("=" * 70)
         print("  - React Frontend App:         http://localhost:5173")
         print("  - API Gateway API Docs:       http://127.0.0.1:8010/docs")
-        print("  - Default Admin Account:      admin@store.com     / admin123")
-        print("  - Default Customer Account:   customer@store.com  / customer123")
+        print(f"  - Admin User:                 {admin_email} (Password set in .env)")
+        print(f"  - Customer User:              {customer_email} (Password set in .env)")
+        print("  - Security:                   All secrets loaded strictly from .env")
         print("=" * 70)
         print("Press Ctrl+C at any time to terminate all components.")
         
