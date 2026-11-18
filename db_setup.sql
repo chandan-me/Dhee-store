@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS products (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO products (id, name, price, stock, image_url) VALUES
-(1, 'Smart Watch Series 5', 89.99, 25, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&h=600&q=80'),
+(1, 'Smart Watch Series 5', 89.99, 25, 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&h=600&q=80'),
 (2, 'Wireless Headphones', 59.99, 40, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&h=600&q=80'),
 (3, 'Travel Backpack', 39.99, 30, 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&h=600&q=80'),
 (4, 'Running Shoes', 49.99, 20, 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&h=600&q=80'),
@@ -58,6 +58,7 @@ USE orders_db;
 
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(100) NULL,
     user_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL,
@@ -65,5 +66,6 @@ CREATE TABLE IF NOT EXISTS orders (
     status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
     payment_method VARCHAR(50) NOT NULL DEFAULT 'COD',
     payment_id VARCHAR(100) NULL,
-    order_group_id VARCHAR(100) NULL
+    order_group_id VARCHAR(100) NULL,
+    INDEX idx_orders_order_number (order_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

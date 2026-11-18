@@ -9,6 +9,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    order_number = Column(String(100), nullable=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     product_id = Column(Integer, nullable=False, index=True)
     quantity = Column(Integer, nullable=False)

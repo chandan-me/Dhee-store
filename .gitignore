@@ -44,11 +44,20 @@ order_service.log
 frontend.log
 
 # --- Local Environment & Secrets ---
-# Keep your credentials local and use .env.example for repo templates
+# Keep your credentials local and use .env.example for repository templates
+.env
 .env.local
 .env.*.local
 *.pem
 *.key
+
+# --- Temporary Scratch Files & Ad-hoc Tests ---
+scratch*
+scratch_*
+test_*.py
+crop_*.png
+*.tmp
+*.bak
 
 # --- Testing & Coverage ---
 .pytest_cache/
@@ -70,6 +79,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.eslintcache
+
+# --- Bundler / Vite Cache ---
+.vite/
+frontend/.vite/
+
+# --- Local Databases & Dumps ---
+*.sqlite
+*.sqlite3
+*.db
 
 # --- IDE & Editors ---
 .idea/
@@ -96,7 +115,3 @@ Thumbs.db
 ~$*.docx
 ~$*.xlsx
 ~$*.pptx
-
-# --- Bundler / Vite Cache ---
-.vite/
-frontend/.vite/

@@ -1,11 +1,13 @@
+import React, { useState } from "react";
 import { formatCurrency, formatNumber } from "../utils/format";
 
 /**
  * eCommerce Product Card component
  * - Correctly fits images with aspect-ratio preservation (object-fit: contain)
+ * - Perfectly centered both horizontally and vertically
  * - NO favorite/heart icons
  * - Title, Stock status, Price
- * - Default button: "🛒 Add Product"
+ * - Default button: "🛒 Add to Cart"
  * - When added: Inline stepper with [-] {quantity} [+] inside the card
  * - Admin Edit & Delete actions
  */
@@ -18,31 +20,26 @@ export default function ProductCard({
   onEdit,
   onToggleBlock,
 }) {
+  const [hasImgError, setHasImgError] = useState(false);
   const isOutOfStock = product.stock <= 0;
+  const showImage = Boolean(product.image_url && !hasImgError);
 
   return (
     <div className={`product-card ${cartQuantity > 0 ? "in-cart-card" : ""} ${product.is_blocked ? "product-blocked" : ""}`}>
-      {/* Centered Product Image Box (Correctly fit images, NO favorite icon) */}
+      {/* Centered Product Image Box (Correctly fit images, perfectly centered) */}
       <div className="product-card-image-box">
-        {product.image_url ? (
+        {showImage ? (
           <img
             src={product.image_url}
             alt={product.name}
             className="product-card-img"
-            onError={(e) => {
-              e.target.style.display = "none";
-              if (e.target.nextSibling) {
-                e.target.nextSibling.style.display = "flex";
-              }
-            }}
+            onError={() => setHasImgError(true)}
           />
-        ) : null}
-        <div
-          className="product-card-placeholder"
-          style={{ display: product.image_url ? "none" : "flex" }}
-        >
-          📦
-        </div>
+        ) : (
+          <div className="product-card-placeholder">
+            📦
+          </div>
+        )}
       </div>
 
       {/* Product Information Body */}

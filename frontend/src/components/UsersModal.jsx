@@ -23,9 +23,7 @@ export default function UsersModal({
             <span style={{ fontSize: "1.5rem" }}>👥</span>
             <div>
               <h3 style={{ margin: 0 }}>Registered Users Directory</h3>
-              <p style={{ margin: "0.2rem 0 0 0", color: "#64748b", fontSize: "0.85rem" }}>
-                Active user accounts registered in MySQL <code>users_db.users</code>.
-              </p>
+           
             </div>
           </div>
           <button type="button" className="close-btn" onClick={onClose}>

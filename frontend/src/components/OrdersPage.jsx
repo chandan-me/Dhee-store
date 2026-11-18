@@ -1,10 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { formatCurrency, formatNumber } from "../utils/format";
 
 /**
  * Dedicated "My Orders" / "Platform Orders" Page
- * Automatically bundles all items purchased in the same checkout session
- * into ONE clean, unified Order Card with itemized product breakdowns.
+ * - Bundles items purchased in the same checkout session into unified Order Cards
+ * - Displays separate, random alphanumeric Order IDs (e.g. ORD-RX7IW5) for EVERY product stored in MySQL
+ * - Provides live search bar to search by random Order ID, DB record number, Product Name, Product ID, Customer ID, or Payment ID
+ * - Enables admin and customers to access any order by its number and view its full products list
  */
 export default function OrdersPage({
   orders = [],
@@ -13,6 +15,10 @@ export default function OrdersPage({
   onNavigateToProducts,
   onDeleteOrderRecord,
 }) {
+  // Search & Filtering State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("ALL"); // "ALL" | "RAZORPAY" | "COD"
+
   // Group orders by checkout session (order_group_id / payment_id / individual order)
   const groupedOrders = useMemo(() => {
     const groups = new Map();
@@ -22,6 +28,7 @@ export default function OrdersPage({
       const groupKey =
         order.order_group_id ||
         (order.payment_id && order.payment_id.trim() ? order.payment_id.trim() : null) ||
+        order.order_number ||
         `ORD-${order.id}`;
 
       if (!groups.has(groupKey)) {
@@ -35,6 +42,7 @@ export default function OrdersPage({
           totalAmount: 0,
           totalQuantity: 0,
           orderIds: [],
+          orderNumbers: [],
         });
       }
 
@@ -43,10 +51,103 @@ export default function OrdersPage({
       grp.totalAmount += Number(order.total_price || 0);
       grp.totalQuantity += Number(order.quantity || 1);
       grp.orderIds.push(order.id);
+      if (order.order_number) {
+        grp.orderNumbers.push(order.order_number);
+      }
     });
 
     return Array.from(groups.values());
   }, [orders]);
+
+  // Clean query strings for comparison
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const cleanNumericQuery = trimmedQuery.replace(/^#/, "").trim();
+
+  // Filter grouped orders based on search query and payment filter
+  const filteredGroups = useMemo(() => {
+    let result = groupedOrders;
+
+    // Filter by payment method
+    if (paymentFilter !== "ALL") {
+      result = result.filter(
+        (g) => (g.paymentMethod || "").toUpperCase() === paymentFilter.toUpperCase()
+      );
+    }
+
+    if (!trimmedQuery) {
+      return result;
+    }
+
+    return result.filter((group) => {
+      // 1. Check if search query matches any item's random alphanumeric Order ID (e.g. ORD-RX7IW5) or numeric ID
+      const matchesAnyOrderId = group.items.some((item) => {
+        const orderNum = (item.order_number || "").toLowerCase();
+        if (orderNum && orderNum.includes(trimmedQuery)) return true;
+        const idStr = String(item.id);
+        return idStr === cleanNumericQuery || idStr.includes(cleanNumericQuery);
+      });
+      if (matchesAnyOrderId) return true;
+
+      // 2. Check groupKey (e.g. COD-7K2M9P, RZP-..., ORD-...)
+      if (group.groupKey && group.groupKey.toLowerCase().includes(trimmedQuery)) {
+        return true;
+      }
+
+      // 3. Check Customer ID
+      if (String(group.userId) === cleanNumericQuery || `customer #${group.userId}`.includes(trimmedQuery)) {
+        return true;
+      }
+
+      // 4. Check Payment ID or Method
+      if (group.paymentId && group.paymentId.toLowerCase().includes(trimmedQuery)) {
+        return true;
+      }
+      if (group.paymentMethod && group.paymentMethod.toLowerCase().includes(trimmedQuery)) {
+        return true;
+      }
+
+      // 5. Check Status
+      if (group.status && group.status.toLowerCase().includes(trimmedQuery)) {
+        return true;
+      }
+
+      // 6. Check Products inside this order (Product Name, Product ID, Category)
+      const matchesProduct = group.items.some((item) => {
+        if (String(item.product_id) === cleanNumericQuery) {
+          return true;
+        }
+        const prod = products.find((p) => p.id === item.product_id);
+        if (prod) {
+          if (prod.name && prod.name.toLowerCase().includes(trimmedQuery)) return true;
+          if (prod.category && prod.category.toLowerCase().includes(trimmedQuery)) return true;
+        }
+        return false;
+      });
+
+      return matchesProduct;
+    });
+  }, [groupedOrders, paymentFilter, trimmedQuery, cleanNumericQuery, products]);
+
+  // Helper: check if a specific item row matches current search query
+  const isItemSearchMatched = (item, prodName) => {
+    if (!trimmedQuery) return false;
+    const orderNum = (item.order_number || `ORD-${item.id}`).toLowerCase();
+    if (orderNum.includes(trimmedQuery)) return true;
+    if (String(item.id) === cleanNumericQuery) return true;
+    if (String(item.product_id) === cleanNumericQuery) return true;
+    if (prodName.toLowerCase().includes(trimmedQuery)) return true;
+    return false;
+  };
+
+  // Quick stats for filter chips
+  const totalRazorpay = useMemo(
+    () => groupedOrders.filter((g) => (g.paymentMethod || "").toUpperCase() === "RAZORPAY").length,
+    [groupedOrders]
+  );
+  const totalCOD = useMemo(
+    () => groupedOrders.filter((g) => (g.paymentMethod || "").toUpperCase() !== "RAZORPAY").length,
+    [groupedOrders]
+  );
 
   return (
     <div className="orders-page-container">
@@ -65,11 +166,82 @@ export default function OrdersPage({
           </h2>
           <p style={{ margin: "0.25rem 0 0 0", color: "#64748b", fontSize: "0.9rem" }}>
             {isAdmin
-              ? "All customer transactions recorded across the distributed microservices."
-              : "Review your purchase history, fulfillment status, and order details."}
+              ? "All customer transactions recorded across the distributed microservices. Each item holds a unique random alphanumeric Order ID in the database."
+              : "Review your purchase history, fulfillment status, and separate alphanumeric item order IDs."}
           </p>
         </div>
       </div>
+
+      {/* Interactive Search & Filter Toolbar */}
+      {groupedOrders.length > 0 && (
+        <div className="card orders-search-toolbar">
+          <div className="orders-search-input-wrapper">
+            <span className="orders-search-icon">🔍</span>
+            <input
+              type="text"
+              className="orders-search-input"
+              placeholder="Search by Order ID (e.g. ORD-RX7IW5 or #50), Product Name (e.g. Headphones), Product ID (#13), or Payment ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search Orders"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="orders-search-clear-btn"
+                onClick={() => setSearchQuery("")}
+                title="Clear Search Filter"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="orders-filter-chips-row">
+            <div className="orders-filter-chips">
+              <button
+                type="button"
+                className={`orders-filter-chip ${paymentFilter === "ALL" ? "active" : ""}`}
+                onClick={() => setPaymentFilter("ALL")}
+              >
+                All Orders ({groupedOrders.length})
+              </button>
+              <button
+                type="button"
+                className={`orders-filter-chip ${paymentFilter === "RAZORPAY" ? "active" : ""}`}
+                onClick={() => setPaymentFilter("RAZORPAY")}
+              >
+                ⚡ Razorpay ({totalRazorpay})
+              </button>
+              <button
+                type="button"
+                className={`orders-filter-chip ${paymentFilter === "COD" ? "active" : ""}`}
+                onClick={() => setPaymentFilter("COD")}
+              >
+                💵 Cash on Delivery ({totalCOD})
+              </button>
+            </div>
+
+            <div className="orders-search-meta">
+              <span className="orders-counter-pill">
+                Showing <strong>{filteredGroups.length}</strong> of <strong>{groupedOrders.length}</strong> {groupedOrders.length === 1 ? "order" : "orders"}
+              </span>
+              {(searchQuery || paymentFilter !== "ALL") && (
+                <button
+                  type="button"
+                  className="orders-reset-btn"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setPaymentFilter("ALL");
+                  }}
+                >
+                  ↺ Reset Filters
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       {groupedOrders.length === 0 ? (
@@ -88,13 +260,35 @@ export default function OrdersPage({
             🛍️ Browse Products
           </button>
         </div>
+      ) : filteredGroups.length === 0 ? (
+        <div className="card empty-page-card">
+          <span style={{ fontSize: "3rem" }}>🔍</span>
+          <h3>No matching orders found</h3>
+          <p style={{ color: "#64748b", maxWidth: "440px", margin: "0 auto 1.25rem auto" }}>
+            No orders match <strong>"{searchQuery}"</strong>
+            {paymentFilter !== "ALL" ? ` with payment filter "${paymentFilter}"` : ""}.
+            Try searching with an alphanumeric Order ID (e.g. <code>ORD-RX7IW5</code>), DB record (<code>#50</code>), a product name (e.g. <code>Backpack</code>), or clear the search.
+          </p>
+          <button
+            type="button"
+            className="secondary sm"
+            onClick={() => {
+              setSearchQuery("");
+              setPaymentFilter("ALL");
+            }}
+          >
+            ↺ Clear Search & Reset Filters
+          </button>
+        </div>
       ) : (
         <div className="orders-page-list">
-          {groupedOrders.map((group) => {
+          {filteredGroups.map((group) => {
             const hasMultipleItems = group.items.length > 1;
-            const minId = Math.min(...group.orderIds);
-            const maxId = Math.max(...group.orderIds);
-            const orderTitle = hasMultipleItems ? `Order #${minId} - #${maxId}` : `Order #${group.orderIds[0]}`;
+            // Display title: groupKey or first order number
+            const firstItemOrderCode = group.items[0]?.order_number || `ORD-${group.items[0]?.id}`;
+            const orderTitle = hasMultipleItems
+              ? `Order Session: ${group.groupKey}`
+              : `Order: ${firstItemOrderCode}`;
 
             return (
               <div key={group.groupKey} className="card order-bundle-card">
@@ -108,8 +302,12 @@ export default function OrdersPage({
                       </span>
                     )}
                     {isAdmin && (
-                      <span className="order-customer-tag">
-                        Customer ID: #{group.userId}
+                      <span
+                        className="order-customer-tag clickable"
+                        onClick={() => setSearchQuery(String(group.userId))}
+                        title={`Click to filter orders by Customer #${group.userId}`}
+                      >
+                        👤 Customer ID: #{group.userId}
                       </span>
                     )}
                   </div>
@@ -130,6 +328,32 @@ export default function OrdersPage({
                   </div>
                 </div>
 
+                {/* Individual Alphanumeric Order IDs Strip for multi-product orders */}
+                {hasMultipleItems && (
+                  <div className="order-bundle-ids-strip">
+                    <span className="order-bundle-ids-strip-label">
+                      🏷️ Separate Item Order IDs:
+                    </span>
+                    <div className="order-bundle-ids-chips">
+                      {group.items.map((it) => {
+                        const code = it.order_number || `ORD-${it.id}`;
+                        const isChipMatched = trimmedQuery && (code.toLowerCase().includes(trimmedQuery) || String(it.id) === cleanNumericQuery);
+                        return (
+                          <button
+                            key={it.id}
+                            type="button"
+                            className={`order-id-chip-btn ${isChipMatched ? "active-chip" : ""}`}
+                            onClick={() => setSearchQuery(code)}
+                            title={`Filter to Order ID ${code}`}
+                          >
+                            {code}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* 2. Order Itemized Products List */}
                 <div className="order-bundle-items-list">
                   {group.items.map((item) => {
@@ -137,9 +361,14 @@ export default function OrdersPage({
                     const prodName = prod ? prod.name : `Product #${item.product_id}`;
                     const prodImage = prod?.image_url;
                     const unitPrice = Number(item.total_price) / item.quantity;
+                    const isMatched = isItemSearchMatched(item, prodName);
+                    const itemOrderCode = item.order_number || `ORD-${item.id}`;
 
                     return (
-                      <div key={item.id} className="order-bundle-item-row">
+                      <div
+                        key={item.id}
+                        className={`order-bundle-item-row ${isMatched ? "matched-search-item" : ""}`}
+                      >
                         {/* Thumbnail */}
                         <div className="order-item-thumb">
                           {prodImage ? (
@@ -162,13 +391,37 @@ export default function OrdersPage({
                           </span>
                         </div>
 
-                        {/* Title & Product Info */}
+                        {/* Title & Product Info with Separate Random Alphanumeric Order ID Badge */}
                         <div className="order-item-info">
-                          <h4 className="order-item-title">{prodName}</h4>
+                          <div className="order-item-title-row">
+                            <span
+                              className="order-item-id-pill"
+                              onClick={() => setSearchQuery(itemOrderCode)}
+                              title={`Click to filter by Order Code ${itemOrderCode}`}
+                            >
+                              🆔 Order ID: {itemOrderCode}
+                            </span>
+                            <h4 className="order-item-title">{prodName}</h4>
+                            {isMatched && (
+                              <span className="order-item-match-pill">
+                                🎯 Matches Search
+                              </span>
+                            )}
+                          </div>
                           <div className="order-item-meta">
-                            <span>Product ID: #{item.product_id}</span>
+                            <span
+                              className="order-meta-prod-id clickable"
+                              onClick={() => setSearchQuery(String(item.product_id))}
+                              title={`Click to filter by Product #${item.product_id}`}
+                            >
+                              Product ID: #{item.product_id}
+                            </span>
                             <span className="meta-dot">•</span>
                             <span>Unit Price: ₹{formatCurrency(unitPrice)}</span>
+                            <span className="meta-dot">•</span>
+                            <span className="order-meta-record-id">
+                              DB Record: #{item.id}
+                            </span>
                           </div>
                         </div>
 

@@ -5,6 +5,7 @@ class OrderBase(BaseModel):
     user_id: int
     product_id: int
     quantity: int = Field(..., gt=0)
+    order_number: Optional[str] = None
     payment_method: Optional[str] = "COD"
     payment_id: Optional[str] = None
     order_group_id: Optional[str] = None
@@ -13,6 +14,7 @@ class OrderCreate(OrderBase):
     pass
 
 class OrderUpdate(BaseModel):
+    order_number: Optional[str] = None
     status: Optional[str] = None
     payment_method: Optional[str] = None
     payment_id: Optional[str] = None

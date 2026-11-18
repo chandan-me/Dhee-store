@@ -1,5 +1,7 @@
 import os
 import time
+import secrets
+import string
 import httpx
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -13,6 +15,12 @@ try:
     from . import models, schemas, database
 except ImportError:
     import models, schemas, database
+
+def generate_random_order_number(prefix: str = "ORD") -> str:
+    """Generates a random alphanumeric order code (e.g. ORD-7K2M9P) using uppercase letters and digits."""
+    chars = string.ascii_uppercase + string.digits
+    suffix = "".join(secrets.choice(chars) for _ in range(6))
+    return f"{prefix}-{suffix}"
 
 def get_razorpay_keys():
     """Dynamically reads RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET from .env with override."""
@@ -124,9 +132,12 @@ async def create_order(order: schemas.OrderCreate, db: Session = Depends(databas
         except httpx.RequestError:
             raise HTTPException(status_code=503, detail="Product Service is unavailable during stock deduction.")
 
-        # Step 5: Save order locally in MySQL orders_db
+        # Step 5: Save order locally in MySQL orders_db with random alphanumeric order number
         total_price = product_data["price"] * order.quantity
+        order_num = order.order_number or generate_random_order_number("ORD")
+        group_num = order.order_group_id or generate_random_order_number("GRP")
         db_order = models.Order(
+            order_number=order_num,
             user_id=order.user_id,
             product_id=order.product_id,
             quantity=order.quantity,
@@ -134,15 +145,11 @@ async def create_order(order: schemas.OrderCreate, db: Session = Depends(databas
             status="COMPLETED",
             payment_method=order.payment_method or "COD",
             payment_id=order.payment_id,
-            order_group_id=order.order_group_id
+            order_group_id=group_num
         )
         db.add(db_order)
         db.commit()
         db.refresh(db_order)
-        if not db_order.order_group_id:
-            db_order.order_group_id = f"ORD-{db_order.id}"
-            db.commit()
-            db.refresh(db_order)
         return db_order
 
 
@@ -220,7 +227,7 @@ async def verify_razorpay_and_place_orders(payload: schemas.RazorpayVerifyReques
     if not payload.items:
         raise HTTPException(status_code=400, detail="No items specified for checkout.")
 
-    group_id = payload.razorpay_payment_id or f"RZP-{int(time.time()*1000)}"
+    group_id = payload.razorpay_payment_id or generate_random_order_number("RZP")
     created_orders = []
     async with httpx.AsyncClient(timeout=10.0) as client_http:
         for item in payload.items:
@@ -237,7 +244,9 @@ async def verify_razorpay_and_place_orders(payload: schemas.RazorpayVerifyReques
                 continue
 
             total_price = prod_data["price"] * item.quantity
+            item_order_number = generate_random_order_number("ORD")
             db_order = models.Order(
+                order_number=item_order_number,
                 user_id=payload.user_id,
                 product_id=item.product_id,
                 quantity=item.quantity,
@@ -261,7 +270,7 @@ async def checkout_cart_orders(payload: schemas.CheckoutRequest, db: Session = D
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart has no items for checkout.")
 
-    group_id = payload.payment_id or f"COD-{int(time.time()*1000)}-{payload.user_id}"
+    group_id = payload.payment_id or generate_random_order_number("COD")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         # Step 1: Verify user
@@ -312,7 +321,9 @@ async def checkout_cart_orders(payload: schemas.CheckoutRequest, db: Session = D
                 raise HTTPException(status_code=500, detail=f"Failed to deduct stock for {pdata['name']}")
 
             total_price = pdata["price"] * item.quantity
+            item_order_number = generate_random_order_number("ORD")
             db_order = models.Order(
+                order_number=item_order_number,
                 user_id=payload.user_id,
                 product_id=item.product_id,
                 quantity=item.quantity,
@@ -333,23 +344,32 @@ async def checkout_cart_orders(payload: schemas.CheckoutRequest, db: Session = D
 # ==============================================================================
 # [DATA TRAVEL FLOW - LIST ORDERS]:
 #   Origin:      API Gateway (GET /orders, scoped by user_id for customers) -> Order Service (GET /orders)
-#   Params:      user_id: Optional[int], skip: int, limit: int
-#   Database:    SELECT * FROM orders_db.orders [WHERE user_id = ?] LIMIT limit OFFSET skip
+#   Params:      user_id: Optional[int], order_id: Optional[int], order_number: Optional[str], product_id: Optional[int], skip: int, limit: int
+#   Database:    SELECT * FROM orders_db.orders [WHERE user_id = ?] [WHERE id = ?] [WHERE order_number = ?] [WHERE product_id = ?] ORDER BY id DESC LIMIT limit OFFSET skip
 #   Destination: Returns list of Order objects back to API Gateway -> Frontend.
 # ==============================================================================
 @app.get("/orders", response_model=List[schemas.Order])
 @app.get("/orders/", response_model=List[schemas.Order], include_in_schema=False)
 def list_orders(
     user_id: Optional[int] = None,
+    order_id: Optional[int] = None,
+    order_number: Optional[str] = None,
+    product_id: Optional[int] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
     db: Session = Depends(database.get_db)
 ):
-    """List orders, optionally filtered by user_id."""
+    """List orders, optionally filtered by user_id, order_id, order_number, or product_id."""
     query = db.query(models.Order)
     if user_id is not None:
         query = query.filter(models.Order.user_id == user_id)
-    return query.offset(skip).limit(limit).all()
+    if order_id is not None:
+        query = query.filter(models.Order.id == order_id)
+    if order_number is not None:
+        query = query.filter(models.Order.order_number == order_number)
+    if product_id is not None:
+        query = query.filter(models.Order.product_id == product_id)
+    return query.order_by(models.Order.id.desc()).offset(skip).limit(limit).all()
 
 
 # ==============================================================================
@@ -413,6 +433,7 @@ async def get_order_details(order_id: int, db: Session = Depends(database.get_db
 
     return {
         "id": order.id,
+        "order_number": order.order_number,
         "user_id": order.user_id,
         "product_id": order.product_id,
         "quantity": order.quantity,

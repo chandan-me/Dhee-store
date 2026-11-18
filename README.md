@@ -70,7 +70,6 @@ microservices/
 ├── README.md                    # Project manual & documentation
 ├── requirements.txt             # Python backend dependencies
 ├── run_all.py                   # Master process runner for all 5 services
-├── test_crud.py                 # Comprehensive 22/22 RBAC & CRUD integration test suite
 │
 ├── docs/                        # Architectural documentation
 │   ├── ARCHITECTURE.docx        # Word document system reference
@@ -196,24 +195,6 @@ When ready, open your browser:
 - **🛡️ API Gateway Swagger Docs**: [http://127.0.0.1:8010/docs](http://127.0.0.1:8010/docs)
 
 *(Press `Ctrl+C` in the terminal to gracefully terminate all services).*
-
----
-
-## 🧪 Automated Test Suite
-
-Run the comprehensive end-to-end integration test suite verifying **22/22 (100%)** security, RBAC, and data travel checks:
-
-```powershell
-python test_crud.py
-```
-
-The automated test suite verifies:
-1. **Dynamic Authentication**: Registering admin and customer accounts, Bcrypt password validation, and profile images.
-2. **Role-Based Access Control (RBAC)**: Customers blocked from catalog modifications (`403 Forbidden`); Admins allowed full product management.
-3. **Soft Block / Unblock System**: Blocking products prevents customer purchases (`400 Bad Request`); unblocking restores purchasing. Blocking user accounts revokes tokens and prevents login (`403 Forbidden`).
-4. **Distributed Order Saga**: Deducting stock atomically in `products_db` upon purchase commitment.
-5. **Scoped Order Visibility**: Customers see only their own purchases; Admins see all platform transactions.
-6. **Order Cancellation & Stock Restoration**: Canceling an order automatically restores deducted inventory back to `products_db`.
 
 ---
 
